@@ -1,0 +1,22 @@
+{
+  "name": "umploy",
+  "version": "1.0.0",
+  "description": "Converts a .umploy.json file to a bash script for running dpl",
+  "homepage": "https://github.com/umweltdk/umploy",
+  "repository": "umweltdk/umploy",
+  "author": "Brian Olsen <bro@lisberg.dk>",
+  "license": "MIT",
+  "keywords": [ "deploy", "dpl", "umploy" ],
+  "main": "bin/umploy",
+  "bin" : "./bin/umploy",
+  "scripts": {
+    "test": "./node_modules/.bin/cover run ./node_modules/.bin/mocha && ./node_modules/.bin/cover report html"
+  },
+  "devDependencies": {
+    "cover": "^0.2.9",
+    "mocha": "^2.3.0"
+  },
+  "dependencies": {
+    "lodash": "^3.10.1"
+  }
+}

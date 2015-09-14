@@ -1,0 +1,182 @@
+#!/usr/bin/env node
+var fs = require('fs');
+var _ = require('lodash');
+
+var SecureConfig = require('../lib/secure-config');
+var RSAPublicKey = require('../lib/rsa-public-key');
+var RSAPrivateKey = require('../lib/rsa-private-key');
+
+process.bin = process.title = 'umploy';
+
+function usage() {
+  console.error('Usage: umploy --encrypt [key] [.umploy.json|-]');
+  console.error('       umploy [.umploy.json|-]');
+  console.error('');
+  console.error('  First form encrypts the specified key in the .umploy.json');
+  console.error('  Second form outputs a bash script based on the .umploy.json');
+  console.error('  ENVIRONMENT:');
+  console.error('     UMPLOY_PRIVATE_KEY - private RSA key to use for encrypting or decrypting secrets');
+  console.error('     UMPLOY_KEY - public RSA key to use for encrypting secrets');
+  process.exit(1);
+}
+
+var filename = process.argv[2];
+var encryptKey = null;
+if (filename === '--encrypt') {
+  encryptKey = process.argv[3];
+  filename = process.argv[4];
+}
+if (!filename || filename === '') {
+  filename = '.umploy.json';
+}
+console.error('Processing', filename);
+
+var deploy;
+try {
+  var input;
+  if (filename === '-') {
+    input = fs.readFileSync('/dev/stdin');
+  } else {
+    input = fs.readFileSync(filename);
+  }
+  deploy = JSON.parse(input);
+} catch (ex) {
+  if (ex.code == 'ENOENT') {
+    console.error('No such file ' + filename);
+  } else {
+    console.error(ex);
+  }
+  usage();
+}
+
+var key = null;
+if (process.env['UMPLOY_PRIVATE_KEY']) {
+  key = new RSAPrivateKey(fs.readFileSync(process.env['UMPLOY_PRIVATE_KEY']));
+} else if (process.env['UMPLOY_KEY']) {
+  key = new RSAPublicKey(fs.readFileSync(process.env['UMPLOY_KEY']));
+}
+
+if (encryptKey) {
+  var value = _.get(deploy, encryptKey);
+  if (!value) {
+    console.error('No value at key' + encryptKey);
+    usage();
+  }
+  if (!_.isString(value)) {
+    console.error('Value at ' + encryptKey + ' not a String', value);
+    usage();
+  }
+  console.log('Encrypting key ' + encryptKey);
+  _.set(deploy, encryptKey, SecureConfig.encrypt(value, key));
+  var output = JSON.stringify(deploy, null, '  ');
+  fs.writeFileSync(filename, output);
+  process.exit(0);
+}
+
+deploy = SecureConfig.decrypt(deploy, key);
+
+function dpl_branch_options(config, branch) {
+  return _.get(config.on, ['branch', branch], {});
+}
+
+function dpl_option(key, value) {
+  if (_.isArray(value)) {
+    return _.map(value, function (val) { return dpl_option(key, val); });
+  } else if (value === true) {
+    return "--" + key;
+  } else if (value === null || value === false) {
+    return null;
+  }
+  return "--" + key + "=" + value.toString();
+}
+
+function dpl_options(config, branch) {
+  options = _.pick(config, function (val, key) { 
+    return !_.includes(['edge', 'on', 'allow_failure', 'before_deploy', 'after_deploy'], key);
+  })
+  if (branch) {
+    options = _.merge(options, dpl_branch_options(config, branch));
+  }
+  options = _.flatten(_.map(options, function(val, key) {
+    return dpl_option(key, val);
+  }));
+  return _.compact(options).join(" \\\n   ");
+}
+
+var config = _.isArray(deploy.dpl) ? deploy.dpl : _.compact([deploy.dpl]);
+
+function branches(config) {
+  if (config.on && config.on.branch) {
+    if (_.isArray(config.on.branch)) {
+      return config.on.branch
+    }
+    if (_.isPlainObject(config.on.branch)) {
+      return _.keys(config.on.branch);
+    }
+    return [config.on.branch];
+  }
+  return null;
+}
+
+function flatten_cond(conditions) {
+  if (_.isArray(conditions)) {
+    return _.map(_.compact(_.flatten(conditions)), function (c) {
+      return '(' + c + ')';
+    }).join(' && ');
+  } else {
+    return conditions;
+  }
+}
+
+config.forEach(function(val, index) {
+  console.log('set -o errexit')
+  console.log('echo "Checking deployment config ' + (index + 1) + '"')
+  console.log('export BUILD_TAG="$([ ${BUILD_REF:0:10} = "refs/tags/" ] && echo ${BUILD_REF#refs/tags/})"')
+  console.log('echo $BUILD_TAG');
+  var conditions = [];
+  if (val.on) {
+    if (val.on.branch) {
+      var b = branches(val);
+      cond = _.map(b, function (branch) { return '$BUILD_BRANCH = ' + branch }).join(' || ');
+      conditions.push(cond);
+    }
+    if (val.on.condition) {
+      conditions.push(val.on.condition);
+    }
+    if ( val.on.tags ) {
+      conditions.push(val.on.tags == true ? '"$BUILD_TAG" != ""' : '"$BUILD_TAG" = ""');
+    }
+  }
+  if (_.isEmpty(conditions)) {
+    console.log('dpl ' + dpl_options(val));
+  }
+  else {
+    conditions = flatten_cond(conditions);
+    console.log('if [[ ' + conditions + ' ]]; then')
+    if (branches(val)) {
+      _.each(branches(val), function (branch) {
+        console.log('  if [[ $BUILD_BRANCH = ' + branch + ' ]]; then')
+        console.log('    dpl ' + dpl_options(val, branch));
+        console.log('  fi');
+      })
+    } else {
+      console.log('  dpl ' + dpl_options(val));
+    }
+    console.log('else');
+    if (val.on.branch) {
+      var b = branches(val);
+      cond = _.map(b, function (branch) { return '$BUILD_BRANCH = ' + branch }).join(' || ');
+      console.log('  [[ ' + cond + ' ]] || echo "skipping deploy because branch is not one of the following: ' + b.join(', ') + '"');
+    }
+    if (val.on.condition) {
+      var cond = flatten_cond(val.on.condition);
+      console.log('  [[ ' + cond + ' ]] || echo "skipping deploy because custom condition not met"');
+    }
+    if ( val.on.tags ) {
+      var cond = val.on.tags == true ? '"$BUILD_TAG" != ""' : '"$BUILD_TAG" = ""';
+      console.log('  [[ ' + cond + ' ]] || echo "skipping deploy because we not building a tag"');
+    }
+
+    console.log('fi');
+  }
+});
