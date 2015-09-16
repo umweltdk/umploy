@@ -57,6 +57,10 @@ if (process.env['UMPLOY_PRIVATE_KEY']) {
 }
 
 if (encryptKey) {
+  if (key === null) {
+    console.error('Neither UMPLOY_KEY nor UMPLOY_PRIVATE_KEY is defined');
+    usage();
+  }
   var value = _.get(deploy, encryptKey);
   if (!value) {
     console.error('No value at key' + encryptKey);
