@@ -23,7 +23,7 @@ RUN curl -SLO "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-
   && npm install -g npm@"$NPM_VERSION" \
   && npm cache clear 
 
-RUN gem install dpl
+RUN gem install dpl aws-sdk-v1 rubyzip
 RUN mkdir -p /usr/src/app
 WORKDIR /usr/src/app
 
