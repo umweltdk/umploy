@@ -135,13 +135,13 @@ function flatten_cond(conditions) {
 config.forEach(function(val, index) {
   console.log('set -o errexit')
   console.log('echo "Checking deployment config ' + (index + 1) + '"')
-  console.log('export BUILD_TAG="$([ ${BUILD_REF:0:10} = "refs/tags/" ] && echo ${BUILD_REF#refs/tags/})"')
+  console.log('export BUILD_TAG="$([ "${BUILD_REF:0:10}" = "refs/tags/" ] && echo "${BUILD_REF#refs/tags/}")"')
   console.log('echo $BUILD_TAG');
   var conditions = [];
   if (val.on) {
     if (val.on.branch) {
       var b = branches(val);
-      cond = _.map(b, function (branch) { return '$BUILD_BRANCH = ' + branch }).join(' || ');
+      cond = _.map(b, function (branch) { return '"$BUILD_BRANCH" = "' + branch + '"' }).join(' || ');
       conditions.push(cond);
     }
     if (val.on.condition) {
@@ -159,7 +159,7 @@ config.forEach(function(val, index) {
     console.log('if [[ ' + conditions + ' ]]; then')
     if (branches(val)) {
       _.each(branches(val), function (branch) {
-        console.log('  if [[ $BUILD_BRANCH = ' + branch + ' ]]; then')
+        console.log('  if [[ "$BUILD_BRANCH" = "' + branch + '" ]]; then')
         console.log('    dpl ' + dpl_options(val, branch));
         console.log('  fi');
       })
@@ -169,7 +169,7 @@ config.forEach(function(val, index) {
     console.log('else');
     if (val.on.branch) {
       var b = branches(val);
-      cond = _.map(b, function (branch) { return '$BUILD_BRANCH = ' + branch }).join(' || ');
+      cond = _.map(b, function (branch) { return '"$BUILD_BRANCH" = "' + branch + '"' }).join(' || ');
       console.log('  [[ ' + cond + ' ]] || echo "skipping deploy because branch is not one of the following: ' + b.join(', ') + '"');
     }
     if (val.on.condition) {
