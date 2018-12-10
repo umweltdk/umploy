@@ -13,15 +13,7 @@
   ],
   "main": "bin/umploy",
   "bin": "./bin/umploy",
-  "scripts": {
-    "test": "./node_modules/.bin/cover run ./node_modules/.bin/mocha && ./node_modules/.bin/cover report html"
-  },
-  "devDependencies": {
-    "cover": "^0.2.9",
-    "mocha": "^2.3.0"
-  },
   "dependencies": {
-    "aws-sdk": "^2.2.10",
     "lodash": "^3.10.1",
     "rsvp": "^3.1.0"
   }
