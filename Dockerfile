@@ -1,4 +1,4 @@
-FROM ruby:2.5
+FROM ruby:2.6
 
 RUN groupadd --gid 1000 node \
   && useradd --uid 1000 --gid node --shell /bin/bash --create-home node
@@ -22,7 +22,7 @@ RUN set -ex \
   gpg --batch --keyserver hkp://pgp.mit.edu:80 --recv-keys "$key" ; \
   done
 ENV NPM_CONFIG_LOGLEVEL info
-ENV NODE_VERSION 10.14.1
+ENV NODE_VERSION 10.16.3
 
 RUN curl -SLO "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-x64.tar.xz" \
   && curl -SLO --compressed "https://nodejs.org/dist/v$NODE_VERSION/SHASUMS256.txt.asc" \
