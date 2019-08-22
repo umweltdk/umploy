@@ -95,7 +95,7 @@ function dpl_option(key, value) {
 }
 
 function dpl_options(config, branch) {
-  options = _.pick(config, function (val, key) { 
+  options = _.pickBy(config, function (val, key) {
     return !_.includes(['edge', 'on', 'allow_failure', 'before_deploy', 'after_deploy'], key);
   })
   if (branch) {
