@@ -1,8 +1,8 @@
 # umploy - deploy tool
 
-This is a simple command line tool for make a bash script that can deploy using
-[dpl][dpl] from a json document with a syntax very
-much like the deploy section from travis.yml
+This is a simple command line tool for making a bash script that can deploy
+using [dpl][dpl] from a json document with a syntax very much like the deploy
+section from travis.yml
 
 It is meant to be used by a build server for executing the bash script and to
 be used for encrypting keys in the file on a developer machine.
